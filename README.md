@@ -2,6 +2,8 @@
 
 用 JavaScript + Three.js 写的离线浏览器小游戏。打开后生成一张有限的方块世界，可以移动、跳跃、挖掘、放置和保存修改。
 
+仓库地址：<https://github.com/Henry369-0/minecraft-3d-sandbox>
+
 ![开场界面](docs/preview.png)
 ![游戏画面](docs/gameplay.png)
 
