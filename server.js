@@ -7,7 +7,9 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = __dirname;
-const port = process.env.PORT || 8080;
+const cliPort = Number(process.argv[2]);
+const envPort = Number(process.env.PORT);
+const port = Number.isInteger(cliPort) && cliPort > 0 ? cliPort : (Number.isInteger(envPort) && envPort > 0 ? envPort : 8080);
 
 const types = {
   '.html': 'text/html; charset=utf-8',

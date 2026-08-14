@@ -1,5 +1,5 @@
 ﻿# 方块世界启动器（PowerShell）
-# 自动寻找可用端口、优先 Python、其次 Node.js，并自动打开浏览器。
+# 自动寻找可用端口、优先 Node.js、其次 Python，并自动打开浏览器。
 # 用法：双击 start.bat（或在 PowerShell 中执行本脚本）
 $ErrorActionPreference = 'Continue'
 Set-Location -Path $PSScriptRoot
@@ -41,12 +41,13 @@ foreach ($c in @('python', 'python3')) {
 }
 
 # ---- 启动服务器 ----
-if ($pythonCmd) {
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+if ($nodeCmd) {
+    Write-Host "[1/2] 使用 Node.js 启动服务器..." -ForegroundColor Green
+    $server = Start-Process -FilePath $nodeCmd.Source -ArgumentList @('server.js', "$port") -WorkingDirectory $PSScriptRoot -WindowStyle Minimized -PassThru
+} elseif ($pythonCmd) {
     Write-Host "[1/2] 使用 $pythonCmd 启动服务器..." -ForegroundColor Green
     $server = Start-Process -FilePath $pythonCmd -ArgumentList @('-m', 'http.server', "$port", '--bind', '127.0.0.1') -WorkingDirectory $PSScriptRoot -WindowStyle Minimized -PassThru
-} elseif (Get-Command node -ErrorAction SilentlyContinue) {
-    Write-Host "[1/2] 使用 Node.js 启动服务器..." -ForegroundColor Green
-    $server = Start-Process -FilePath 'node' -ArgumentList @('server.js') -WorkingDirectory $PSScriptRoot -WindowStyle Minimized -PassThru
 } else {
     Write-Host "未找到 Python 或 Node.js，请先安装其中一个（推荐 https://nodejs.org 或 https://www.python.org）。" -ForegroundColor Red
     Read-Host "按回车退出"
