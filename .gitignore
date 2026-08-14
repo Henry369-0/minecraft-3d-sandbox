@@ -1,0 +1,16 @@
+# 依赖（Node 自测用；游戏本体不依赖，Three.js 已打包在 js/libs/）
+node_modules/
+
+# 测试/运行产生的临时文件
+tools/reports.log
+tools/last-report.json
+tools/loader-debug.txt
+tools/chrome_profile*/
+tools/cp_*/
+tools/edge_probe/
+*.log
+
+# 操作系统垃圾
+.DS_Store
+Thumbs.db
+desktop.ini

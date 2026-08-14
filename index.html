@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>方块世界 · 3D 沙盒</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <div id="error" class="hidden"></div>
+  <div id="loading"><div class="loading-box">正在生成世界…</div></div>
+
+  <!-- 主界面 HUD -->
+  <div id="hud" class="hidden">
+    <div id="crosshair"></div>
+    <div id="hints">
+      <b>操作</b><br>
+      WASD 移动 &nbsp;·&nbsp; 空格 跳跃<br>
+      Shift 潜行 &nbsp;·&nbsp; 双击W 冲刺<br>
+      鼠标左键 破坏 &nbsp;·&nbsp; 右键 放置<br>
+      数字键 1-9 选择方块 &nbsp;·&nbsp; R 重新生成<br>
+      I 无敌开关 &nbsp;·&nbsp; -/= 灵敏度 &nbsp;·&nbsp; Esc 释放鼠标
+    </div>
+    <div id="stats"></div>
+    <div id="selected-name"></div>
+    <div id="topbar">
+      <button id="btn-regen" type="button">🔄 重新生成世界</button>
+      <span id="save-status"></span>
+    </div>
+    <div id="hearts"></div>
+    <div id="invincible-badge" class="hidden">⚡ 无敌模式</div>
+    <div id="hotbar"></div>
+    <div id="damage-flash"></div>
+  </div>
+
+  <!-- 死亡界面 -->
+  <div id="death-overlay" class="hidden">
+    <div class="death-panel">
+      <h2>💀 你死了</h2>
+      <p id="death-reason">从高处坠落</p>
+      <button id="btn-respawn" type="button">立即重生</button>
+      <p class="death-count">3 秒后自动重生…</p>
+    </div>
+  </div>
+
+  <!-- 自定义确认框（防止误触重新生成） -->
+  <div id="confirm-overlay" class="hidden">
+    <div class="confirm-panel">
+      <p id="confirm-text"></p>
+      <div class="confirm-buttons">
+        <button id="btn-confirm-ok" type="button">确认</button>
+        <button id="btn-confirm-cancel" type="button">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 指针锁定遮罩 -->
+  <div id="overlay">
+    <div class="overlay-panel">
+      <h1>方块世界</h1>
+      <p class="sub">一个《我的世界》风格的 3D 沙盒</p>
+      <button id="btn-start" type="button">▶ 点击开始游戏</button>
+      <div class="controls">
+        <div><b>移动</b> WASD / 方向键</div>
+        <div><b>跳跃</b> 空格 &nbsp;&nbsp; <b>潜行</b> Shift &nbsp;&nbsp; <b>冲刺</b> 双击W</div>
+        <div><b>破坏方块</b> 鼠标左键（可长按）</div>
+        <div><b>放置方块</b> 鼠标右键</div>
+        <div><b>切换方块</b> 数字键 1-9</div>
+        <div><b>重新生成世界</b> R 键或上方按钮</div>
+      </div>
+      <p class="seed">世界种子：<span id="seed-text">-</span></p>
+      <p class="note">世界与你的修改会自动保存到浏览器 localStorage</p>
+      <div class="sens-row">
+        <label for="sens-slider">视角灵敏度</label>
+        <input type="range" id="sens-slider" min="0.4" max="6" step="0.1" value="1.8">
+        <span id="sens-value">1.8</span>
+      </div>
+      <p id="lock-error" class="hidden"></p>
+      <div class="overlay-buttons">
+        <button id="btn-regen-overlay" type="button" class="secondary">🔄 重新生成世界</button>
+        <button id="btn-dragmode" type="button" class="secondary">🖱 拖动视角模式进入</button>
+      </div>
+      <p class="drag-note">若点击「开始游戏」后鼠标未被锁定（弹窗不消失），请点上面的「拖动视角模式进入」；进入后按住鼠标左键拖动看四周，单击左键破坏、右键放置。</p>
+    </div>
+  </div>
+
+  <script>
+    // 统一域名：localhost 与 127.0.0.1 的 localStorage 不互通，重定向到 127.0.0.1 保证存档一致
+    if (location.hostname === 'localhost') {
+      location.replace(location.protocol + '//127.0.0.1' + (location.port ? ':' + location.port : '') + location.pathname + location.search);
+    }
+
+    // 捕获运行时错误，便于无头测试与排错
+    window.addEventListener('error', function (e) {
+      document.body.dataset.error = String((e && e.message) || (e && e.error) || e);
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      document.body.dataset.error = 'unhandledrejection: ' + String((e && e.reason) || e);
+    });
+
+    // 启动前的友好诊断
+    (function () {
+      function showError(text) {
+        var el = document.getElementById('error');
+        el.textContent = text;
+        el.classList.remove('hidden');
+        var loading = document.getElementById('loading');
+        if (loading) loading.classList.add('hidden');
+      }
+      // 1) 直接双击打开 index.html（file:// 协议）
+      if (location.protocol === 'file:') {
+        showError(
+          '请不要直接双击 index.html 打开。\n\n' +
+          '正确方法：\n' +
+          '1) 双击项目文件夹里的 start.bat（或命令行执行 python -m http.server 8080 或 node server.js）\n' +
+          '2) 然后在浏览器访问 http://127.0.0.1:8080\n\n' +
+          '（浏览器出于安全限制，禁止 file:// 页面加载 ES 模块）'
+        );
+        return;
+      }
+      // 2) WebGL 支持检查
+      try {
+        var probe = document.createElement('canvas');
+        var gl = probe.getContext('webgl2') || probe.getContext('webgl');
+        if (!gl) {
+          showError('当前浏览器无法创建 WebGL 上下文。\n请更新浏览器，或在浏览器设置中开启「硬件加速」后重启浏览器。');
+        }
+      } catch (err) { /* 交给 main.js 处理 */ }
+      // 3) 看门狗：若 4 秒后游戏仍未启动，给出提示
+      window.setTimeout(function () {
+        if (window.__mc3d || document.body.dataset.error || document.getElementById('selftest-result')) return;
+        showError(
+          '游戏未能启动：可能是浏览器版本过旧（需要 Chrome/Edge 89+、Firefox 108+），\n' +
+          '或页面脚本出错。请按 F12 打开开发者工具查看 Console 报错，再告诉我具体内容。'
+        );
+      }, 4000);
+    })();
+  </script>
+  <script type="importmap">
+    { "imports": { "three": "./js/libs/three.module.js" } }
+  </script>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

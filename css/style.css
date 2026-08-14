@@ -1,0 +1,306 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+canvas { display: block; }
+
+.hidden { display: none !important; }
+
+/* ---------- 加载遮罩 ---------- */
+#loading {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #0c1626;
+  z-index: 100;
+}
+#loading .loading-box {
+  color: #cfe6ff;
+  font-size: 20px;
+  letter-spacing: 2px;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
+
+/* ---------- 错误提示 ---------- */
+#error {
+  position: fixed; top: 0; left: 0; right: 0;
+  background: #b3261e; color: #fff;
+  padding: 12px 16px; z-index: 300;
+  font-size: 14px; white-space: pre-wrap;
+}
+
+/* ---------- HUD ---------- */
+#hud {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#crosshair {
+  position: absolute; left: 50%; top: 50%;
+  width: 20px; height: 20px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+#crosshair::before, #crosshair::after {
+  content: "";
+  position: absolute; background: rgba(255,255,255,.92);
+  box-shadow: 0 0 2px rgba(0,0,0,.8);
+}
+#crosshair::before { left: 9px; top: 0; width: 2px; height: 20px; }
+#crosshair::after  { top: 9px; left: 0; height: 2px; width: 20px; }
+
+#hints {
+  position: absolute; top: 12px; left: 12px;
+  background: rgba(10, 20, 35, 0.62);
+  color: #e8f2ff;
+  font-size: 13px; line-height: 1.75;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.12);
+  backdrop-filter: blur(3px);
+}
+#hints b { color: #ffe08a; }
+
+#stats {
+  position: absolute; top: 12px; right: 12px;
+  background: rgba(10, 20, 35, 0.62);
+  color: #bcd7ff;
+  font: 12px/1.8 "Consolas", monospace;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.12);
+  text-align: right;
+  white-space: pre;
+}
+
+#selected-name {
+  position: absolute; bottom: 92px; left: 50%;
+  transform: translateX(-50%);
+  color: #fff; font-size: 14px;
+  text-shadow: 0 1px 3px rgba(0,0,0,.9);
+  background: rgba(0,0,0,.35);
+  padding: 2px 12px; border-radius: 10px;
+}
+
+#topbar {
+  position: absolute; top: 12px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  pointer-events: auto;
+}
+#topbar button, #overlay button {
+  font-size: 14px;
+  color: #fff;
+  background: rgba(30, 50, 80, 0.85);
+  border: 1px solid rgba(255,255,255,.35);
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s;
+}
+#topbar button:hover, #overlay button:hover { background: rgba(52, 84, 130, 0.95); }
+#topbar button:active { transform: translateY(1px); }
+#save-status { color: #9fd0a0; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,.8); min-height: 14px; }
+
+/* ---------- 快捷栏 ---------- */
+#hotbar {
+  position: absolute; bottom: 16px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; gap: 4px;
+  background: rgba(8, 16, 28, 0.55);
+  border: 2px solid rgba(255,255,255,.25);
+  border-radius: 10px;
+  padding: 5px;
+  backdrop-filter: blur(3px);
+}
+.hotbar-slot {
+  position: relative;
+  width: 52px; height: 52px;
+  border: 2px solid rgba(255,255,255,.18);
+  border-radius: 6px;
+  background: rgba(20, 32, 50, 0.85);
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color .1s, transform .1s;
+}
+.hotbar-slot canvas {
+  width: 40px; height: 40px;
+  image-rendering: pixelated;
+}
+.hotbar-slot .key {
+  position: absolute; top: 1px; left: 4px;
+  font: bold 10px/1 "Consolas", monospace;
+  color: rgba(255,255,255,.75);
+  text-shadow: 0 1px 2px rgba(0,0,0,.9);
+}
+.hotbar-slot.selected {
+  border-color: #ffffff;
+  background: rgba(70, 100, 140, 0.95);
+  transform: translateY(-4px);
+  box-shadow: 0 0 10px rgba(255,255,255,.35);
+}
+
+/* ---------- 遮罩层 ---------- */
+#overlay {
+  position: fixed; inset: 0;
+  z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 35%, rgba(20, 42, 74, 0.55), rgba(4, 10, 20, 0.88));
+  backdrop-filter: blur(4px);
+}
+.overlay-panel {
+  text-align: center;
+  color: #eef5ff;
+  max-width: 460px;
+  padding: 30px 36px;
+  background: rgba(12, 22, 40, 0.78);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+.overlay-panel h1 {
+  font-size: 34px; letter-spacing: 3px;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(90, 170, 255, .6);
+  margin-bottom: 4px;
+}
+.overlay-panel .sub { color: #9fc3ee; margin-bottom: 18px; font-size: 14px; }
+#btn-start {
+  font-size: 18px !important;
+  padding: 12px 40px !important;
+  background: linear-gradient(180deg, #3d8b40, #2c6b2f) !important;
+  border-color: #7fd384 !important;
+}
+#btn-start:hover { background: linear-gradient(180deg, #4aa24e, #347c38) !important; }
+.controls {
+  margin: 18px auto 10px;
+  text-align: left;
+  font-size: 14px; line-height: 2;
+  color: #d5e5fb;
+  display: inline-block;
+}
+.controls b { color: #ffe08a; display: inline-block; min-width: 62px; }
+.seed { color: #9fc3ee; font-size: 13px; margin-top: 6px; }
+.note { color: #7fa6d8; font-size: 12px; margin-top: 4px; }
+#btn-regen-overlay { margin-top: 14px; }
+.overlay-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
+.overlay-buttons .secondary { margin-top: 0; }
+#lock-error {
+  color: #ffb4ab;
+  font-size: 13px;
+  margin-top: 10px;
+  background: rgba(140, 30, 20, 0.35);
+  border: 1px solid rgba(255, 120, 100, 0.4);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.drag-note { color: #6f95c8; font-size: 12px; margin-top: 10px; line-height: 1.6; }
+
+/* ---------- 灵敏度 ---------- */
+.sens-row {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin-top: 12px; color: #cfe2fb; font-size: 13px;
+}
+.sens-row input[type="range"] { width: 140px; accent-color: #4aa24e; }
+#sens-value { min-width: 30px; color: #ffe08a; font-family: "Consolas", monospace; }
+
+/* ---------- 血条 ---------- */
+#hearts {
+  position: absolute; bottom: 84px; left: 16px;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 4px rgba(0,0,0,.9);
+  pointer-events: none;
+}
+#hearts .heart { color: #3a2a2a; }
+#hearts .heart.on { color: #ff3b30; }
+#hearts .heart.half {
+  background: linear-gradient(90deg, #ff3b30 50%, #3a2a2a 50%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- 无敌徽章 ---------- */
+#invincible-badge {
+  position: absolute; bottom: 118px; left: 16px;
+  background: rgba(30, 60, 120, 0.85);
+  color: #ffe08a;
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 224, 138, .6);
+  pointer-events: none;
+}
+
+/* ---------- 受伤红闪 ---------- */
+#damage-flash {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 120px rgba(200, 20, 20, 0);
+  opacity: 0;
+}
+#damage-flash.flash { animation: dmgFlash .35s ease-out; }
+@keyframes dmgFlash {
+  0% { opacity: 1; box-shadow: inset 0 0 140px rgba(220, 30, 30, .95); }
+  100% { opacity: 0; box-shadow: inset 0 0 140px rgba(220, 30, 30, 0); }
+}
+
+/* ---------- 死亡界面 ---------- */
+#death-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(30, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+.death-panel {
+  text-align: center; color: #ffe3e3;
+  background: rgba(40, 8, 8, 0.9);
+  border: 1px solid rgba(255, 120, 100, .5);
+  border-radius: 14px;
+  padding: 26px 40px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.6);
+}
+.death-panel h2 { font-size: 30px; margin-bottom: 6px; }
+#death-reason { color: #d9a0a0; font-size: 14px; margin-bottom: 16px; }
+#btn-respawn {
+  font-size: 16px; color: #fff;
+  background: linear-gradient(180deg, #b3502a, #8a3a1c);
+  border: 1px solid #e08a5a; border-radius: 8px;
+  padding: 10px 30px; cursor: pointer; font-family: inherit;
+}
+#btn-respawn:hover { background: linear-gradient(180deg, #c95f33, #a04422); }
+.death-count { color: #b07a7a; font-size: 12px; margin-top: 10px; }
+
+/* ---------- 自定义确认框 ---------- */
+#confirm-overlay {
+  position: fixed; inset: 0; z-index: 70;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(5, 10, 20, 0.55);
+}
+.confirm-panel {
+  max-width: 380px; text-align: center; color: #eef5ff;
+  background: rgba(16, 28, 48, 0.96);
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 12px;
+  padding: 22px 28px;
+}
+#confirm-text { font-size: 15px; line-height: 1.7; margin-bottom: 18px; }
+.confirm-buttons { display: flex; gap: 12px; justify-content: center; }
+.confirm-buttons button {
+  font-size: 14px; color: #fff; cursor: pointer; font-family: inherit;
+  border-radius: 8px; padding: 8px 26px; border: 1px solid rgba(255,255,255,.4);
+}
+#btn-confirm-ok { background: #c0392b; }
+#btn-confirm-ok:hover { background: #d94a3a; }
+#btn-confirm-cancel { background: #2d4a75; }
+#btn-confirm-cancel:hover { background: #3d5f92; }
