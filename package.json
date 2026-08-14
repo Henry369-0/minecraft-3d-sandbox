@@ -1,0 +1,14 @@
+{
+  "name": "minecraft-3d-sandbox",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tools/selftest-node.mjs",
+    "test:stress": "node tools/stress-test.mjs"
+  },
+  "devDependencies": {
+    "three": "0.170.0"
+  }
+}

@@ -56,6 +56,18 @@ canvas { display: block; }
 }
 #crosshair::before { left: 9px; top: 0; width: 2px; height: 20px; }
 #crosshair::after  { top: 9px; left: 0; height: 2px; width: 20px; }
+#break-progress {
+  --break-progress: 0deg;
+  position: absolute; inset: -6px;
+  border-radius: 50%;
+  background: conic-gradient(#ffe6a6 var(--break-progress), rgba(255,255,255,.16) 0deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+  opacity: 0;
+  transform: scale(.82);
+  transition: opacity .12s ease, transform .12s ease;
+}
+#break-progress.visible { opacity: .95; transform: scale(1); }
 
 #hints {
   position: absolute; top: 12px; left: 12px;
@@ -88,7 +100,10 @@ canvas { display: block; }
   text-shadow: 0 1px 3px rgba(0,0,0,.9);
   background: rgba(0,0,0,.35);
   padding: 2px 12px; border-radius: 10px;
+  opacity: 1;
+  transition: opacity .25s ease;
 }
+#selected-name.fade-out, #save-status.fade-out { opacity: 0; }
 
 #topbar {
   position: absolute; top: 12px; left: 50%;
@@ -109,7 +124,7 @@ canvas { display: block; }
 }
 #topbar button:hover, #overlay button:hover { background: rgba(52, 84, 130, 0.95); }
 #topbar button:active { transform: translateY(1px); }
-#save-status { color: #9fd0a0; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,.8); min-height: 14px; }
+#save-status { color: #9fd0a0; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,.8); min-height: 14px; transition: opacity .25s ease; }
 
 /* ---------- 快捷栏 ---------- */
 #hotbar {

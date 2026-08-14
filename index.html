@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>方块世界 · 3D 沙盒</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="./css/style.css">
 </head>
 <body>
@@ -12,7 +13,7 @@
 
   <!-- 主界面 HUD -->
   <div id="hud" class="hidden">
-    <div id="crosshair"></div>
+    <div id="crosshair"><span id="break-progress" aria-hidden="true"></span></div>
     <div id="hints">
       <b>操作</b><br>
       WASD 移动 &nbsp;·&nbsp; 空格 跳跃<br>
@@ -21,7 +22,7 @@
       数字键 1-9 选择方块 &nbsp;·&nbsp; R 重新生成<br>
       I 无敌开关 &nbsp;·&nbsp; -/= 灵敏度 &nbsp;·&nbsp; Esc 释放鼠标
     </div>
-    <div id="stats"></div>
+    <div id="stats" class="hidden"></div>
     <div id="selected-name"></div>
     <div id="topbar">
       <button id="btn-regen" type="button">🔄 重新生成世界</button>
@@ -61,12 +62,10 @@
       <p class="sub">一个《我的世界》风格的 3D 沙盒</p>
       <button id="btn-start" type="button">▶ 点击开始游戏</button>
       <div class="controls">
-        <div><b>移动</b> WASD / 方向键</div>
-        <div><b>跳跃</b> 空格 &nbsp;&nbsp; <b>潜行</b> Shift &nbsp;&nbsp; <b>冲刺</b> 双击W</div>
-        <div><b>破坏方块</b> 鼠标左键（可长按）</div>
-        <div><b>放置方块</b> 鼠标右键</div>
-        <div><b>切换方块</b> 数字键 1-9</div>
-        <div><b>重新生成世界</b> R 键或上方按钮</div>
+      <div><b>移动</b> WASD / 方向键　<b>跳跃</b> 空格</div>
+      <div><b>破坏</b> 按住左键　<b>放置</b> 右键</div>
+      <div><b>切换方块</b> 数字键 1-9　<b>帮助</b> H</div>
+      <div><b>暂停</b> Esc　<b>调试信息</b> F3</div>
       </div>
       <p class="seed">世界种子：<span id="seed-text">-</span></p>
       <p class="note">世界与你的修改会自动保存到浏览器 localStorage</p>
@@ -80,7 +79,7 @@
         <button id="btn-regen-overlay" type="button" class="secondary">🔄 重新生成世界</button>
         <button id="btn-dragmode" type="button" class="secondary">🖱 拖动视角模式进入</button>
       </div>
-      <p class="drag-note">若点击「开始游戏」后鼠标未被锁定（弹窗不消失），请点上面的「拖动视角模式进入」；进入后按住鼠标左键拖动看四周，单击左键破坏、右键放置。</p>
+      <p class="drag-note">若点击「开始游戏」后鼠标未被锁定（弹窗不消失），请点上面的「拖动视角模式进入」；进入后按住鼠标左键拖动看四周，按住左键破坏、右键放置。</p>
     </div>
   </div>
 

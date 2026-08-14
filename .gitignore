@@ -9,6 +9,8 @@ tools/chrome_profile*/
 tools/cp_*/
 tools/edge_probe/
 *.log
+.playwright-cli/
+output/
 
 # 操作系统垃圾
 .DS_Store

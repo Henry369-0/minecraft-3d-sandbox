@@ -8,6 +8,9 @@ let onRegen = null;
 let onEnterDragMode = null;
 let onSensChange = null;
 let confirmCallback = null;
+let selectedNameTimer = 0;
+let saveStatusTimer = 0;
+let hintsTimer = 0;
 
 function drawSlotIcon(canvas, blockId) {
   const ctx = canvas.getContext('2d');
@@ -89,6 +92,10 @@ export function initUI() {
     hideOverlay,
     setSeedText,
     setStats,
+    setDebugVisible,
+    toggleHints,
+    showHintsTemporarily,
+    setBreakProgress,
     setSaveStatus,
     showError,
     hideError,
@@ -138,8 +145,34 @@ export function setStats(text) {
   if (el.textContent !== text) el.textContent = text;
 }
 
+export function setDebugVisible(visible) {
+  const el = $('stats');
+  if (el) el.classList.toggle('hidden', !visible);
+}
+
+export function toggleHints() {
+  const el = $('hints');
+  if (!el) return false;
+  const visible = el.classList.toggle('hidden') === false;
+  if (visible) showHintsTemporarily(8000);
+  return visible;
+}
+
+export function showHintsTemporarily(duration = 8000) {
+  const el = $('hints');
+  if (!el) return;
+  clearTimeout(hintsTimer);
+  el.classList.remove('hidden');
+  hintsTimer = window.setTimeout(() => el.classList.add('hidden'), duration);
+}
+
 export function setSaveStatus(text) {
-  $('save-status').textContent = text;
+  const el = $('save-status');
+  if (!el) return;
+  clearTimeout(saveStatusTimer);
+  el.textContent = text;
+  el.classList.remove('fade-out');
+  saveStatusTimer = window.setTimeout(() => el.classList.add('fade-out'), 1500);
 }
 
 export function showError(msg) {
@@ -185,6 +218,14 @@ export function flashDamage() {
   // 强制重启动画
   void el.offsetWidth;
   el.classList.add('flash');
+}
+
+export function setBreakProgress(progress, visible) {
+  const el = $('break-progress');
+  if (!el) return;
+  const value = Math.max(0, Math.min(1, Number(progress) || 0));
+  el.style.setProperty('--break-progress', `${value * 360}deg`);
+  el.classList.toggle('visible', Boolean(visible));
 }
 
 // ---- 无敌模式 ----
@@ -245,5 +286,9 @@ function setSelected(i) {
   slots.forEach((s, idx) => s.classList.toggle('selected', idx === selectedIndex));
   const name = BLOCKS[HOTBAR[selectedIndex]].name;
   const el = $('selected-name');
+  if (!el) return;
+  clearTimeout(selectedNameTimer);
   el.textContent = '手持：' + name;
+  el.classList.remove('fade-out');
+  selectedNameTimer = window.setTimeout(() => el.classList.add('fade-out'), 1200);
 }

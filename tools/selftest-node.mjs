@@ -5,6 +5,7 @@ import { buildChunkGeometry } from '../js/mesher.js';
 import { raycastVoxel } from '../js/raycast.js';
 import { Player } from '../js/player.js';
 import { BLOCKS, tileUV } from '../js/textures.js';
+import { getBreakDuration, targetKey } from '../js/breaking.js';
 
 const report = { steps: [], ok: true };
 const check = (name, cond, extra) => {
@@ -147,6 +148,12 @@ try {
   p.vel.set(5, 0, 0);
   for (let i = 0; i < 60; i++) p.update(1 / 60, input);
   check('墙壁阻挡移动', p.pos.x < wallX - 0.3, 'x=' + p.pos.x.toFixed(2) + ' wall=' + wallX);
+
+  // ---- 6. 破坏缓冲辅助逻辑 ----
+  check('原木破坏时间为 360ms', getBreakDuration(4) === 360);
+  check('树叶比原木更快破坏', getBreakDuration(5) < getBreakDuration(4));
+  check('未知方块使用默认破坏时间', getBreakDuration(999) === 260);
+  check('同一坐标生成稳定目标键', targetKey({ x: 1, y: 2, z: 3 }) === '1,2,3');
   check('撞墙后速度为零', Math.abs(p.vel.x) < 0.001);
 
   // 从平台边缘上方坠落

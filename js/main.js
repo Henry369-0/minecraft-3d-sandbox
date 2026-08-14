@@ -5,6 +5,7 @@ import { World, WX, WY, WZ, CHUNK, loadSave, writeSave, clearSave } from './worl
 import { buildChunkGeometry, chunkKey, chunkOf } from './mesher.js';
 import { raycastVoxel } from './raycast.js';
 import { Player } from './player.js';
+import { getBreakDuration, targetKey } from './breaking.js';
 import { initUI, requestLock, showOverlay, hideOverlay } from './ui.js';
 
 const REACH = 6;                 // 交互距离
@@ -98,6 +99,10 @@ function runSelfTest() {
     p.vel.set(5, 0, 0);
     for (let i = 0; i < 30; i++) p.update(1 / 60, input);
     check('墙壁阻挡移动', p.pos.x < wallX - 0.3, 'x=' + p.pos.x.toFixed(2) + ' wall=' + wallX);
+    check('原木破坏时间为 360ms', getBreakDuration(4) === 360);
+    check('树叶比原木更快破坏', getBreakDuration(5) < getBreakDuration(4));
+    check('未知方块使用默认破坏时间', getBreakDuration(999) === 260);
+    check('同一坐标生成稳定目标键', targetKey({ x: 1, y: 2, z: 3 }) === '1,2,3');
   } catch (e) {
     report.ok = false;
     report.error = String((e && e.stack) || e);
@@ -126,7 +131,9 @@ let selectedSlot = 0;
 let sensitivity = 1.8;       // 视角灵敏度倍数（×0.001 = 弧度/像素）
 let deathTimer = 0;          // 死亡重生倒计时
 let saveTimer = 0, statsTimer = 0, saveFlashTimer = 0;
-let breakTimer = 0, placeTimer = 0;
+let placeTimer = 0;
+const breaking = { active: false, key: '', startedAt: 0, duration: 0 };
+let debugVisible = false;
 let lastWTime = 0;
 let clock = new THREE.Clock();
 let fpsFrames = 0, fpsTime = 0, fpsValue = 60;
@@ -140,8 +147,8 @@ const input = {
 // 拖动视角模式状态（指针锁定不可用时的兜底）
 let dragMode = false;
 let mouseDragging = false;
-let dragStartTime = 0;
 let dragMoved = 0;
+let leftMouseDown = false;
 
 function boot() {
   ui = initUI();
@@ -149,7 +156,8 @@ function boot() {
   ui.setOnEnterDragMode(() => {
     dragMode = true;
     ui.hideOverlay();
-    ui.setSaveStatus('拖动视角模式：按住左键拖动看四周，单击左键破坏，右键放置');
+    ui.showHintsTemporarily(8000);
+    ui.setSaveStatus('拖动视角模式：按住左键拖动看四周，按住左键破坏，右键放置');
   });
   ui.setOnSensChange((v) => {
     sensitivity = v;
@@ -167,7 +175,7 @@ function boot() {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 0.95;
   document.body.appendChild(canvas);
 
   scene = new THREE.Scene();
@@ -474,6 +482,17 @@ function wireInput() {
     ShiftLeft: 'sneak', ShiftRight: 'sneak',
   };
   window.addEventListener('keydown', (e) => {
+    if (e.code === 'F3' && !e.repeat) {
+      e.preventDefault();
+      debugVisible = !debugVisible;
+      ui.setDebugVisible(debugVisible);
+      return;
+    }
+    if (e.code === 'KeyH' && !e.repeat) {
+      e.preventDefault();
+      ui.toggleHints();
+      return;
+    }
     // 死亡时按空格/回车立即重生
     if (player && player.dead && (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyR')) {
       e.preventDefault();
@@ -528,6 +547,8 @@ function wireInput() {
   window.addEventListener('blur', () => {
     for (const k in input) input[k] = false;
     stopRepeating();
+    leftMouseDown = false;
+    cancelBreaking();
   });
 
   document.addEventListener('mousemove', (e) => {
@@ -543,9 +564,8 @@ function wireInput() {
     if (document.pointerLockElement === renderer.domElement) {
       e.preventDefault();
       if (e.button === 0) {
-        breakBlock();
-        stopRepeating();
-        breakTimer = setInterval(breakBlock, 240);
+        leftMouseDown = true;
+        startBreaking();
       } else if (e.button === 2) {
         placeBlock();
         stopRepeating();
@@ -554,10 +574,11 @@ function wireInput() {
     } else if (dragMode) {
       e.preventDefault();
       if (e.button === 0) {
-        // 左键：先记录，可能是拖动看视角，也可能是单击破坏
+        // 左键：按住时尝试破坏，位移超过阈值则只视为转动视角
         mouseDragging = true;
-        dragStartTime = performance.now();
         dragMoved = 0;
+        leftMouseDown = true;
+        startBreaking();
       } else if (e.button === 2) {
         placeBlock();
         stopRepeating();
@@ -569,8 +590,11 @@ function wireInput() {
     stopRepeating();
     if (dragMode && e.button === 0 && mouseDragging) {
       mouseDragging = false;
-      // 短时间、小位移 → 视为单击，破坏方块
-      if (performance.now() - dragStartTime < 300 && dragMoved < 10) breakBlock();
+      leftMouseDown = false;
+      cancelBreaking();
+    } else if (e.button === 0) {
+      leftMouseDown = false;
+      cancelBreaking();
     }
   });
   document.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -588,7 +612,6 @@ function look(dx, dy) {
 }
 
 function stopRepeating() {
-  if (breakTimer) { clearInterval(breakTimer); breakTimer = 0; }
   if (placeTimer) { clearInterval(placeTimer); placeTimer = 0; }
 }
 
@@ -597,9 +620,12 @@ function onPointerLockChange() {
   if (locked) {
     hideOverlay();
     ui.hideError();
+    ui.showHintsTemporarily(8000);
   } else {
     showOverlay();
     stopRepeating();
+    leftMouseDown = false;
+    cancelBreaking();
   }
 }
 
@@ -614,12 +640,54 @@ function currentRay() {
   return raycastVoxel((x, y, z) => world.get(x, y, z), _rayOrigin.x, _rayOrigin.y, _rayOrigin.z, _rayDir.x, _rayDir.y, _rayDir.z, REACH);
 }
 
-function breakBlock() {
-  const hit = currentRay();
+function breakBlock(hit = currentRay()) {
   if (!hit) return;
   const id = world.get(hit.x, hit.y, hit.z);
   if (id === 10) return; // 基岩不可破坏
   world.set(hit.x, hit.y, hit.z, 0);
+}
+
+function startBreaking(now = performance.now()) {
+  const hit = currentRay();
+  const id = hit ? world.get(hit.x, hit.y, hit.z) : 0;
+  if (!hit || id === 10 || !BLOCKS[id]) return;
+  breaking.active = true;
+  breaking.key = targetKey(hit);
+  breaking.startedAt = now;
+  breaking.duration = getBreakDuration(id);
+  ui.setBreakProgress(0, true);
+}
+
+function cancelBreaking() {
+  breaking.active = false;
+  breaking.key = '';
+  breaking.startedAt = 0;
+  breaking.duration = 0;
+  if (ui) ui.setBreakProgress(0, false);
+}
+
+function updateBreaking(now = performance.now()) {
+  if (!breaking.active) {
+    if (leftMouseDown && !(dragMode && dragMoved >= 10)) startBreaking(now);
+    return;
+  }
+  if (dragMode && dragMoved >= 10) {
+    cancelBreaking();
+    return;
+  }
+  const hit = currentRay();
+  const id = hit ? world.get(hit.x, hit.y, hit.z) : 0;
+  if (!hit || id === 10 || targetKey(hit) !== breaking.key) {
+    cancelBreaking();
+    return;
+  }
+  const progress = (now - breaking.startedAt) / breaking.duration;
+  ui.setBreakProgress(progress, true);
+  if (progress >= 1) {
+    breakBlock(hit);
+    cancelBreaking();
+    if (leftMouseDown) startBreaking(now);
+  }
 }
 
 function placeBlock() {
@@ -743,6 +811,7 @@ function loop() {
 
   // 准星高亮
   updateHighlight();
+  updateBreaking(performance.now());
 
   // 统计
   fpsFrames++;

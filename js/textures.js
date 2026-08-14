@@ -55,9 +55,9 @@ function paintGrassTop(img, rng) {
       const i = (y * 16 + x) * 4;
       const r = rng();
       let cr, cg, cb;
-      if (r < 0.5) { cr = 0x5d; cg = 0xa6; cb = 0x3e; }
-      else if (r < 0.8) { cr = 0x86; cg = 0xcf; cb = 0x55; }
-      else { cr = 0x4c; cg = 0x8f; cb = 0x36; }
+      if (r < 0.5) { cr = 0x4f; cg = 0x7f; cb = 0x36; }
+      else if (r < 0.8) { cr = 0x64; cg = 0x9b; cb = 0x43; }
+      else { cr = 0x79; cg = 0xad; cb = 0x52; }
       img.data[i] = cr + Math.floor((rng() * 2 - 1) * 8);
       img.data[i + 1] = cg + Math.floor((rng() * 2 - 1) * 8);
       img.data[i + 2] = cb;
@@ -67,15 +67,15 @@ function paintGrassTop(img, rng) {
 }
 
 function paintGrassSide(img, rng) {
-  speckle(img, 0x8a, 0x28, rng, 255); // 泥土底
+  paintDirt(img, rng); // 棕色泥土底，不使用灰度噪声
   for (let x = 0; x < 16; x++) {
     const grassH = 3 + Math.floor(rng() * 2); // 参差的草皮边缘
     for (let y = 0; y <= grassH; y++) {
       const i = (y * 16 + x) * 4;
       const r = rng();
-      img.data[i] = r < 0.6 ? 0x5d : 0x86;
-      img.data[i + 1] = r < 0.6 ? 0xa6 : 0xcf;
-      img.data[i + 2] = 0x3e + Math.floor(rng() * 0x1a);
+      img.data[i] = r < 0.6 ? 0x4f : 0x64;
+      img.data[i + 1] = r < 0.6 ? 0x7f : 0x9b;
+      img.data[i + 2] = r < 0.6 ? 0x36 : 0x43;
       img.data[i + 3] = 255;
     }
   }
