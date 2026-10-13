@@ -1,6 +1,6 @@
 // 方块世界：数据存储、确定性生成、修改记录（用于 localStorage 存档）
 import { mulberry32, makeValueNoise2D, fbm2 } from './noise.js';
-import { BLOCKS } from './textures.js';
+import { BLOCKS, HOTBAR } from './textures.js';
 
 export const WX = 96;   // 世界宽度（x）
 export const WY = 64;   // 世界高度（y，垂直）
@@ -10,6 +10,13 @@ export const CHUNK = 16;
 const index = (x, y, z) => (y * WZ + z) * WX + x;
 
 const SAVE_KEY = 'mc3d_save_v1';
+
+function isSaveData(data) {
+  return data !== null && typeof data === 'object' && !Array.isArray(data)
+    && Number.isInteger(data.seed) && data.seed >= 0 && data.seed <= 0xffffffff
+    && (data.v === undefined || data.v === 1)
+    && (data.changes === undefined || Array.isArray(data.changes));
+}
 
 export class World {
   constructor(seed) {
@@ -25,7 +32,8 @@ export class World {
   index(x, y, z) { return index(x, y, z); }
 
   inBounds(x, y, z) {
-    return x >= 0 && x < WX && y >= 0 && y < WY && z >= 0 && z < WZ;
+    return Number.isInteger(x) && Number.isInteger(y) && Number.isInteger(z)
+      && x >= 0 && x < WX && y >= 0 && y < WY && z >= 0 && z < WZ;
   }
 
   // 越界处理：y<0 视为实体地面（防止玩家挖穿世界掉出虚空）；其余越界视为空气
@@ -42,7 +50,7 @@ export class World {
   }
 
   set(x, y, z, id) {
-    if (!this.inBounds(x, y, z)) return false;
+    if (!this.inBounds(x, y, z) || !Number.isInteger(id) || !Object.hasOwn(BLOCKS, id)) return false;
     const i = index(x, y, z);
     if (this.blocks[i] === id) return false;
     this.blocks[i] = id;
@@ -108,17 +116,17 @@ export class World {
         if (h <= 17) continue; // 沙滩不种树
         if (this.blocks[index(x, h, z)] !== 1) continue; // 只在草地上
         if (rng() >= 0.02) continue;
-        this.growTree(x, h, rng);
+        this.growTree(x, z, h, rng);
       }
     }
   }
 
-  growTree(x, topY, rng) {
+  growTree(x, z, topY, rng) {
     const trunkH = 4 + Math.floor(rng() * 2);
     if (topY + trunkH + 2 >= WY) return;
     // 树干
     for (let y = topY + 1; y <= topY + trunkH; y++) {
-      const i = index(x, y, x);
+      const i = index(x, y, z);
       this.blocks[i] = 4;
       this.base[i] = 4;
     }
@@ -130,7 +138,7 @@ export class World {
       for (let dx = -r; dx <= r; dx++) {
         for (let dz = -r; dz <= r; dz++) {
           if (Math.abs(dx) === r && Math.abs(dz) === r && rng() < 0.45) continue;
-          const bx = x + dx, bz = x + dz;
+          const bx = x + dx, bz = z + dz;
           if (bx < 0 || bx >= WX || bz < 0 || bz >= WZ) continue;
           const i = index(bx, y, bz);
           if (this.blocks[i] !== 0) continue; // 不覆盖树干
@@ -153,7 +161,8 @@ export class World {
   }
 
   static restore(data) {
-    const w = new World(data.seed >>> 0);
+    if (!isSaveData(data)) throw new TypeError('存档格式无效');
+    const w = new World(data.seed);
     if (data && Array.isArray(data.changes)) {
       for (const c of data.changes) {
         if (Array.isArray(c) && c.length === 4) w.set(c[0], c[1], c[2], c[3]);
@@ -170,8 +179,14 @@ export function loadSave() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const data = JSON.parse(raw);
-    if (!data || typeof data.seed !== 'number') return null;
-    return data;
+    if (!isSaveData(data)) return null;
+    const safe = { ...data };
+    const position = safe.player;
+    if (!position || !['x', 'y', 'z', 'yaw', 'pitch'].every(key => Number.isFinite(position[key]))) delete safe.player;
+    if (!Number.isInteger(safe.slot) || safe.slot < 0 || safe.slot >= HOTBAR.length) delete safe.slot;
+    if (!Number.isFinite(safe.sens) || safe.sens < 0.4 || safe.sens > 6) delete safe.sens;
+    if (!Number.isFinite(safe.hp)) delete safe.hp;
+    return safe;
   } catch (e) {
     console.warn('读取存档失败：', e);
     return null;
