@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "test": "node tools/selftest-node.mjs",
+    "test": "node tools/selftest-node.mjs && node --test tools/world-regression.test.mjs",
     "test:stress": "node tools/stress-test.mjs"
   },
   "devDependencies": {
